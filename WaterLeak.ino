@@ -27,10 +27,19 @@
 */
 #include <ESP8266WiFi.h>
 #include "DataToMaker.h"
+#include <PubSubClient.h>
 
-const char* myKey = "xxxxxxxxxx";
-const char* ssid = "xxxxx";
+const char* myKey = "xxxxxx";
+const char* ssid = "xxxxxxxx";
 const char* password = "xxxxxxx";
+
+const char *mqtt_server = "xxx.cloudmqtt.com";
+const int mqttPort = xxxx;
+const char *mqttUser = "xxxxxx";
+const char *mqttPassword = "xxxxxxxxx";
+const char *mqtt_client_name = "waterleaksensor"; 
+
+#define BUFFER_SIZE 100
 
 const int redPin = 4; //  ~D2
 const int greenPin = 12; // ~D6
@@ -43,6 +52,9 @@ DataToMaker event(myKey, "WaterLeak_Bathroom_3");
 int WiFiStrength = 0;
 
 WiFiServer server(80);
+
+WiFiClient wclient; 
+PubSubClient client(wclient);
 
 void setup() {
   Serial.begin(115200);
@@ -92,6 +104,8 @@ void setup() {
   Serial.print("http://");
   Serial.print(WiFi.localIP());
   Serial.println("/");
+
+  client.setServer(mqtt_server, mqttPort);
 
 }
 
@@ -172,6 +186,8 @@ void loop() {
     }
 
     if(chartValue > 25){
+
+      //Send IFTTT message
       if (event.connect())
       {
         Serial.print("Connected to Maker");
@@ -179,7 +195,28 @@ void loop() {
         event.post();
       }
       //else debugln("Failed To Connect To Maker!");
-      else Serial.print("Failed to Connect to Maker");
+      else {
+        Serial.print("Failed to Connect to Maker");
+      }
+
+      //Send Mqtt message
+      while (!client.connected()) {
+        Serial.println("Connecting to MQTT...");
+   
+        if (client.connect(mqtt_client_name, mqttUser, mqttPassword )) {
+   
+        Serial.println("connected");  
+   
+      } else {
+   
+        Serial.print("failed with state ");
+        Serial.print(client.state());
+        delay(2000);
+       
+          }
+      }
+      client.publish("esp/waterLeakSensor", "Water Leak in bathroom 3 upstairs!!!");
+      
     }
 
     delay(1000); // this is the duration the LED will stay ON
